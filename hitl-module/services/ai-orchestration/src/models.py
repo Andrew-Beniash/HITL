@@ -71,7 +71,13 @@ class Document(Base):
     source_format: Mapped[SourceFormat] = mapped_column(source_format_enum, nullable=False)
     current_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("document_versions.id", ondelete="SET NULL", onupdate="CASCADE"),
+        ForeignKey(
+            "document_versions.id",
+            name="documents_current_version_id_fkey",
+            ondelete="SET NULL",
+            onupdate="CASCADE",
+            use_alter=True,
+        ),
         nullable=True,
     )
     review_state: Mapped[ReviewState] = mapped_column(

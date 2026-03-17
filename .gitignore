@@ -1,0 +1,53 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+
+# TypeScript / frontend build output
+dist/
+coverage/
+.turbo/
+.next/
+.vite/
+*.tsbuildinfo
+
+# Python
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.pyc
+
+# Prisma / generated clients
+**/src/generated/
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Local data / runtime artifacts
+tmp/
+temp/
+*.pid
