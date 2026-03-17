@@ -274,7 +274,7 @@ export const documentRoutes: FastifyPluginAsync = async (app) => {
             sheetName: { type: "string" },
             row: { type: "number" },
             col: { type: "number" },
-            value: { type: ["string", "number"] },
+            value: { oneOf: [{ type: "string" }, { type: "number" }] },
           },
         },
       },

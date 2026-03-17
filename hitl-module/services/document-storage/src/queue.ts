@@ -1,12 +1,22 @@
 import { Queue } from "bullmq";
-import { Redis } from "ioredis";
+import type { ConnectionOptions } from "bullmq";
 import type { SourceFormat } from "@hitl/shared-types";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 
-function createConnection(): Redis {
-  return new Redis(REDIS_URL, { maxRetriesPerRequest: null });
+// Parse Redis URL into BullMQ ConnectionOptions (avoids ioredis version conflicts)
+function parseRedisUrl(url: string): ConnectionOptions {
+  const u = new URL(url);
+  return {
+    host: u.hostname || "localhost",
+    port: u.port ? parseInt(u.port, 10) : 6379,
+    ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
+    ...(u.username ? { username: u.username } : {}),
+    maxRetriesPerRequest: null, // required by BullMQ
+  };
 }
+
+const sharedConnection: ConnectionOptions = parseRedisUrl(REDIS_URL);
 
 // ── Queue instances (created lazily once) ────────────────────────────────────
 
@@ -16,7 +26,7 @@ let xlsxEditQueue: Queue | null = null;
 export function getConversionQueue(): Queue {
   if (!conversionQueue) {
     conversionQueue = new Queue("epub-conversion", {
-      connection: createConnection(),
+      connection: sharedConnection,
     });
   }
   return conversionQueue;
@@ -25,7 +35,7 @@ export function getConversionQueue(): Queue {
 export function getXlsxEditQueue(): Queue {
   if (!xlsxEditQueue) {
     xlsxEditQueue = new Queue("xlsx-edit", {
-      connection: createConnection(),
+      connection: sharedConnection,
     });
   }
   return xlsxEditQueue;

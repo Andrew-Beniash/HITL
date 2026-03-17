@@ -8,8 +8,7 @@
  * Run standalone:  pnpm worker:xlsx-edit
  */
 
-import { Worker, type Job } from "bullmq";
-import { Redis } from "ioredis";
+import { Worker, type Job, type ConnectionOptions } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -137,12 +136,20 @@ async function processXlsxEdit(job: Job<XlsxEditJobPayload>): Promise<void> {
 
 // ── Start worker ──────────────────────────────────────────────────────────────
 
-const connection = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
+function parseRedisUrl(url: string): ConnectionOptions {
+  const u = new URL(url);
+  return {
+    host: u.hostname || "localhost",
+    port: u.port ? parseInt(u.port, 10) : 6379,
+    ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
+    maxRetriesPerRequest: null,
+  };
+}
 
 const worker = new Worker<XlsxEditJobPayload>(
   "xlsx-edit",
   processXlsxEdit,
-  { connection, concurrency: 2 }
+  { connection: parseRedisUrl(REDIS_URL), concurrency: 2 }
 );
 
 worker.on("completed", (job) => {
