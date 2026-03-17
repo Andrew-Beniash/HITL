@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AttentionPanel } from "../components/AttentionPanel/AttentionPanel.js";
 import { EpubViewer } from "../components/EpubViewer/EpubViewer.js";
 import { useEpubLocation } from "../components/EpubViewer/useEpubLocation.js";
 import { useDocument, useSession } from "../store/index.js";
@@ -13,6 +14,7 @@ export function DocumentPage() {
     useDocument();
   const { documentId } = useSession();
   const [selectionState, setSelectionState] = useState<SelectionState | null>(null);
+  const [rendition, setRendition] = useState<any | null>(null);
 
   const locationState = useEpubLocation(documentId ?? "unknown-document");
   const initialCfi = currentLocation ?? locationState.savedCfi ?? undefined;
@@ -52,20 +54,23 @@ export function DocumentPage() {
         ) : null}
       </header>
 
-      <EpubViewer
-        epubUrl={epubUrl}
-        initialCfi={initialCfi}
-        zoomMode="fixed"
-        onLocationChange={(cfi, chapter) => {
-          setCurrentLocation(cfi);
-          setCurrentChapter(chapter);
-          locationState.saveLocation(cfi);
-        }}
-        onSelectionChange={(cfi, text) => {
-          setSelectionState({ cfi, text });
-        }}
-      />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <EpubViewer
+          epubUrl={epubUrl}
+          initialCfi={initialCfi}
+          zoomMode="fixed"
+          onRenditionReady={setRendition}
+          onLocationChange={(cfi, chapter) => {
+            setCurrentLocation(cfi);
+            setCurrentChapter(chapter);
+            locationState.saveLocation(cfi);
+          }}
+          onSelectionChange={(cfi, text) => {
+            setSelectionState({ cfi, text });
+          }}
+        />
+        <AttentionPanel rendition={rendition} />
+      </div>
     </section>
   );
 }
-

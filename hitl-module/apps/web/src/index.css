@@ -17,3 +17,17 @@ body {
 #root {
   min-height: 100vh;
 }
+
+@keyframes annotation-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.annotation-pulse {
+  animation: annotation-pulse 1.2s ease-in-out infinite;
+}

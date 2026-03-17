@@ -31,6 +31,9 @@ declare module "epubjs" {
   }
 
   export interface Rendition {
+    manager?: {
+      container: Element;
+    };
     hooks: {
       content: {
         register(cb: (contents: Contents) => void): void;
@@ -42,6 +45,7 @@ declare module "epubjs" {
     off?(event: string, cb?: (...args: any[]) => void): void;
     destroy?(): void;
     getRange?(cfi: string): Range | null;
+    currentLocation?(): Location | null;
   }
 
   export default function Epub(url: string): Book;

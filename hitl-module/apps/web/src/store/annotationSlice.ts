@@ -3,19 +3,43 @@ import type { Annotation, AnnotationType } from "@hitl/shared-types";
 import type { AllSlices } from "./types.js";
 
 export interface AnnotationFilter {
-  type?: AnnotationType;
-  status?: "open" | "resolved" | "rejected";
-  authorId?: string;
+  type: AnnotationType | "all";
+  initiator: "human" | "ai" | "all";
+  status: "open" | "resolved" | "all";
+  fromDate?: Date;
+  toDate?: Date;
 }
 
 export interface AnnotationSlice {
   annotations: Annotation[];
-  filter: AnnotationFilter;
+  focusedAnnotationId: string | null;
+  filterState: AnnotationFilter;
+  resolvedCount: number;
+  totalCriticalCount: number;
   getSortedCriticalFlags: () => Annotation[];
   setAnnotations: (annotations: Annotation[]) => void;
   upsertAnnotation: (annotation: Annotation) => void;
   removeAnnotation: (id: string) => void;
-  setFilter: (filter: AnnotationFilter) => void;
+  setFocusedAnnotation: (id: string | null) => void;
+  setFilter: (filter: Partial<AnnotationFilter>) => void;
+}
+
+const DEFAULT_FILTER: AnnotationFilter = {
+  type: "all",
+  initiator: "all",
+  status: "all",
+};
+
+function countResolvedCriticalFlags(annotations: Annotation[]) {
+  return annotations.filter(
+    (annotation) =>
+      annotation.type === "critical_flag" && annotation.status === "resolved"
+  ).length;
+}
+
+function countTotalCriticalFlags(annotations: Annotation[]) {
+  return annotations.filter((annotation) => annotation.type === "critical_flag")
+    .length;
 }
 
 export const createAnnotationSlice: StateCreator<
@@ -25,7 +49,10 @@ export const createAnnotationSlice: StateCreator<
   AnnotationSlice
 > = (set, get) => ({
   annotations: [],
-  filter: {},
+  focusedAnnotationId: null,
+  filterState: DEFAULT_FILTER,
+  resolvedCount: 0,
+  totalCriticalCount: 0,
   getSortedCriticalFlags: () =>
     get()
       .annotations.filter(
@@ -38,6 +65,8 @@ export const createAnnotationSlice: StateCreator<
   setAnnotations: (annotations) =>
     set((state) => {
       state.annotations = annotations;
+      state.resolvedCount = countResolvedCriticalFlags(annotations);
+      state.totalCriticalCount = countTotalCriticalFlags(annotations);
     }),
   upsertAnnotation: (annotation) =>
     set((state) => {
@@ -47,13 +76,24 @@ export const createAnnotationSlice: StateCreator<
       } else {
         state.annotations.push(annotation);
       }
+      state.resolvedCount = countResolvedCriticalFlags(state.annotations);
+      state.totalCriticalCount = countTotalCriticalFlags(state.annotations);
     }),
   removeAnnotation: (id) =>
     set((state) => {
       state.annotations = state.annotations.filter((a) => a.id !== id);
+      if (state.focusedAnnotationId === id) {
+        state.focusedAnnotationId = null;
+      }
+      state.resolvedCount = countResolvedCriticalFlags(state.annotations);
+      state.totalCriticalCount = countTotalCriticalFlags(state.annotations);
+    }),
+  setFocusedAnnotation: (id) =>
+    set((state) => {
+      state.focusedAnnotationId = id;
     }),
   setFilter: (filter) =>
     set((state) => {
-      state.filter = filter;
+      state.filterState = { ...state.filterState, ...filter };
     }),
 });

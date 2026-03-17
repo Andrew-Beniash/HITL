@@ -42,14 +42,14 @@ function successFetchImpl(url: string): Promise<Response> {
       ],
     });
   }
+  if (url.includes("/annotations")) {
+    return make({ annotations: [] });
+  }
   if (url.includes("/documents/")) {
     return make({ id: "doc-1", sourceFormat: "docx", currentVersionId: "v1" });
   }
   if (url.includes("/font-profiles/active")) {
     return make(null);
-  }
-  if (url.includes("/annotations")) {
-    return make({ annotations: [] });
   }
   return make({});
 }
@@ -67,7 +67,14 @@ describe("HitlModuleProvider", () => {
       fontProfile: null,
       fontLoadError: null,
       annotations: [],
-      filter: {},
+      focusedAnnotationId: null,
+      filterState: {
+        type: "all",
+        initiator: "all",
+        status: "all",
+      },
+      resolvedCount: 0,
+      totalCriticalCount: 0,
     });
   });
 

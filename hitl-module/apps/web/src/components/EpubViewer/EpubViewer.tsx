@@ -4,9 +4,12 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import Epub, { type Book, type Contents, type Location, type Rendition } from "epubjs";
-import { useFont, useSession } from "../../store/index.js";
+import { AnnotationOverlay } from "../AnnotationOverlay/AnnotationOverlay.js";
+import { SelectionToolbar } from "../AnnotationOverlay/SelectionToolbar.js";
+import { useAnnotations, useFont, useSession } from "../../store/index.js";
 import { getPlatformStylesheetUrl } from "../../lib/platform-stylesheet.js";
 
 export interface EpubViewerHandle {
@@ -22,6 +25,7 @@ export interface EpubViewerProps {
   zoomMode: "fixed" | "reflow";
   diffMode?: boolean;
   diffEpubUrl?: string;
+  onRenditionReady?: (rendition: Rendition | null) => void;
   onLocationChange: (cfi: string, chapter: string) => void;
   onSelectionChange: (cfi: string, text: string) => void;
 }
@@ -54,6 +58,7 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
       zoomMode,
       diffMode = false,
       diffEpubUrl,
+      onRenditionReady,
       onLocationChange,
       onSelectionChange,
     },
@@ -67,9 +72,20 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
     const diffRenditionRef = useRef<Rendition | null>(null);
     const currentCfiRef = useRef<string | null>(initialCfi ?? null);
     const syncLockRef = useRef(false);
+    const [activeRendition, setActiveRendition] = useState<Rendition | null>(null);
+    const [selectionState, setSelectionState] = useState<{
+      cfi: string | null;
+      text: string | null;
+      anchorY: number | null;
+    }>({
+      cfi: null,
+      text: null,
+      anchorY: null,
+    });
 
     const { fontProfile } = useFont();
     const { documentId } = useSession();
+    const { annotations, focusedAnnotationId, setFocusedAnnotation } = useAnnotations();
     const activeFontProfile = fontProfile ?? DEFAULT_FONT_PROFILE;
     const stylesheetUrl = useMemo(
       () => getPlatformStylesheetUrl(activeFontProfile),
@@ -110,24 +126,28 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
 
       bookRef.current = mainBook;
       renditionRef.current = mainRendition;
+      setActiveRendition(mainRendition);
+      onRenditionReady?.(mainRendition);
 
       const handleContent = (contents: Contents) => {
         contents.addStylesheet(stylesheetUrl);
-
-        contents.document?.addEventListener("selectionchange", () => {
-          const selection = contents.window.getSelection();
-          if (!selection || selection.isCollapsed || !bookRef.current?.getCfiFromRange) {
-            return;
-          }
-
-          const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-          if (!range) {
-            return;
-          }
-
-          const cfi = bookRef.current.getCfiFromRange(range);
-          onSelectionChange(cfi, selection.toString());
-        });
+        const scriptContent = `
+          document.addEventListener('selectionchange', function() {
+            var sel = document.getSelection();
+            if (!sel || sel.isCollapsed) return;
+            var range = sel.getRangeAt(0);
+            var rect = range.getBoundingClientRect();
+            parent.postMessage({
+              type: 'EPUB_SELECTION',
+              rangeText: sel.toString(),
+              anchorY: rect.top + window.scrollY
+            }, '*');
+          });
+        `;
+        contents.document?.head.insertAdjacentHTML(
+          "beforeend",
+          "<script>" + scriptContent + "</script>"
+        );
       };
 
       const handleRelocated = (location: Location) => {
@@ -206,6 +226,8 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
         diffRenditionRef.current = null;
         bookRef.current = null;
         diffBookRef.current = null;
+        setActiveRendition(null);
+        onRenditionReady?.(null);
       };
     }, [
       diffEpubUrl,
@@ -213,11 +235,40 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
       documentId,
       epubUrl,
       initialCfi,
+      onRenditionReady,
       onLocationChange,
       onSelectionChange,
       stylesheetUrl,
       zoomMode,
     ]);
+
+    useEffect(() => {
+      const handleMessage = (event: MessageEvent) => {
+        if (!event.data || event.data.type !== "EPUB_SELECTION") {
+          return;
+        }
+
+        const currentCfi =
+          renditionRef.current?.currentLocation?.()?.start.cfi ?? currentCfiRef.current;
+
+        if (!currentCfi) {
+          return;
+        }
+
+        setSelectionState({
+          cfi: currentCfi,
+          text: event.data.rangeText ?? null,
+          anchorY:
+            typeof event.data.anchorY === "number" ? event.data.anchorY : null,
+        });
+        onSelectionChange(currentCfi, event.data.rangeText ?? "");
+      };
+
+      window.addEventListener("message", handleMessage);
+      return () => {
+        window.removeEventListener("message", handleMessage);
+      };
+    }, [onSelectionChange]);
 
     useEffect(() => {
       const container = containerRef.current;
@@ -260,15 +311,21 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
           diffMode && diffEpubUrl ? "grid-cols-2" : "grid-cols-1"
         }`}
       >
-        <div className="min-h-[32rem] overflow-auto rounded-2xl border border-slate-700/70 bg-white/95 p-3 shadow-inner">
+        <div className="relative min-h-[32rem] overflow-auto rounded-2xl border border-slate-700/70 bg-white/95 p-3 shadow-inner">
           <div
             ref={containerRef}
             data-testid="epub-viewer-main"
             className="h-full min-h-[28rem] w-full"
           />
+          <AnnotationOverlay
+            annotations={annotations}
+            rendition={activeRendition}
+            focusedAnnotationId={focusedAnnotationId}
+            onAnnotationClick={setFocusedAnnotation}
+          />
         </div>
         {diffMode && diffEpubUrl ? (
-          <div className="min-h-[32rem] overflow-auto rounded-2xl border border-slate-700/70 bg-white/95 p-3 shadow-inner">
+          <div className="relative min-h-[32rem] overflow-auto rounded-2xl border border-slate-700/70 bg-white/95 p-3 shadow-inner">
             <div
               ref={diffContainerRef}
               data-testid="epub-viewer-diff"
@@ -276,8 +333,18 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
             />
           </div>
         ) : null}
+        {documentId ? (
+          <SelectionToolbar
+            selectionCfi={selectionState.cfi}
+            selectionText={selectionState.text}
+            selectionAnchorY={selectionState.anchorY}
+            documentId={documentId}
+            onDismiss={() =>
+              setSelectionState({ cfi: null, text: null, anchorY: null })
+            }
+          />
+        ) : null}
       </div>
     );
   }
 );
-

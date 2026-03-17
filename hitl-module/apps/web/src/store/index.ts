@@ -48,11 +48,15 @@ export const useDocument = () =>
 export const useAnnotations = () =>
   useStore(useShallow((s) => ({
     annotations: s.annotations,
-    filter: s.filter,
+    focusedAnnotationId: s.focusedAnnotationId,
+    filterState: s.filterState,
+    resolvedCount: s.resolvedCount,
+    totalCriticalCount: s.totalCriticalCount,
     getSortedCriticalFlags: s.getSortedCriticalFlags,
     setAnnotations: s.setAnnotations,
     upsertAnnotation: s.upsertAnnotation,
     removeAnnotation: s.removeAnnotation,
+    setFocusedAnnotation: s.setFocusedAnnotation,
     setFilter: s.setFilter,
   })));
 

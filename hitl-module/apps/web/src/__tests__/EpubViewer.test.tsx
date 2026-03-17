@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FontProfile } from "@hitl/shared-types";
 import { EpubViewer } from "../components/EpubViewer/EpubViewer.js";
@@ -10,7 +10,7 @@ const epubMockState = vi.hoisted(() => {
   const books: Array<{
     url: string;
     rendition: {
-      handlers: Record<string, EventHandler>;
+      handlers: Record<string, EventHandler[]>;
       registerContentHook: EventHandler | null;
       display: ReturnType<typeof vi.fn>;
       renderTo: ReturnType<typeof vi.fn>;
@@ -26,13 +26,19 @@ const epubMockState = vi.hoisted(() => {
 vi.mock("epubjs", () => ({
   default: vi.fn((url: string) => {
     const rendition = {
-      handlers: {} as Record<string, EventHandler>,
+      handlers: {} as Record<string, EventHandler[]>,
       registerContentHook: null as EventHandler | null,
       display: vi.fn(() => Promise.resolve()),
       renderTo: vi.fn(),
       destroy: vi.fn(),
       themes: { override: vi.fn() },
       getRange: vi.fn(() => null),
+      currentLocation: vi.fn(() => ({
+        start: {
+          cfi: "epubcfi(/6/4)",
+          href: "chapter-1.xhtml",
+        },
+      })),
     };
 
     const book = {
@@ -47,9 +53,28 @@ vi.mock("epubjs", () => ({
         themes: rendition.themes,
         display: rendition.display,
         on: (event: string, cb: EventHandler) => {
-          rendition.handlers[event] = cb;
+          rendition.handlers[event] ??= [];
+          rendition.handlers[event].push(cb);
+        },
+        off: vi.fn((event: string, cb?: EventHandler) => {
+          if (!cb) {
+            rendition.handlers[event] = [];
+            return;
+          }
+
+          rendition.handlers[event] =
+            rendition.handlers[event]?.filter((handler) => handler !== cb) ?? [];
+        }),
+        manager: {
+          container: {
+            getBoundingClientRect: () => ({
+              left: 0,
+              top: 0,
+            }),
+          },
         },
         getRange: rendition.getRange,
+        currentLocation: rendition.currentLocation,
         destroy: rendition.destroy,
       })),
       getRange: rendition.getRange,
@@ -85,6 +110,11 @@ const fontProfile: FontProfile = {
 };
 
 describe("EpubViewer", () => {
+  const emit = (bookIndex: number, event: string, ...args: any[]) => {
+    const handlers = epubMockState.books[bookIndex].rendition.handlers[event] ?? [];
+    handlers.forEach((handler) => handler(...args));
+  };
+
   beforeEach(() => {
     epubMockState.books.length = 0;
     sessionStorage.clear();
@@ -138,11 +168,13 @@ describe("EpubViewer", () => {
       />
     );
 
-    epubMockState.books[0].rendition.handlers.relocated({
-      start: {
-        cfi: "epubcfi(/6/2[chapter-1]!/4/1:0)",
-        href: "chapter-1.xhtml",
-      },
+    act(() => {
+      emit(0, "relocated", {
+        start: {
+          cfi: "epubcfi(/6/2[chapter-1]!/4/1:0)",
+          href: "chapter-1.xhtml",
+        },
+      });
     });
 
     expect(onLocationChange).toHaveBeenCalledWith(
@@ -186,11 +218,13 @@ describe("EpubViewer", () => {
 
     expect(epubMockState.books).toHaveLength(2);
 
-    epubMockState.books[0].rendition.handlers.relocated({
-      start: {
-        cfi: "epubcfi(/6/8)",
-        href: "chapter-2.xhtml",
-      },
+    act(() => {
+      emit(0, "relocated", {
+        start: {
+          cfi: "epubcfi(/6/8)",
+          href: "chapter-2.xhtml",
+        },
+      });
     });
 
     await waitFor(() => {
