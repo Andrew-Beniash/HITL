@@ -404,9 +404,11 @@ class XlsxEpubConverter(BaseConverter):
     ) -> dict[str, Any]:
         """Build {coordinate: evaluated_value} for all formula cells in *ws*.
 
-        Stage 1: openpyxl data_only reads Excel-cached values from the XML.
-        Stage 2: formulas library evaluates cells absent from the Excel cache
-                 (files created by openpyxl have no pre-cached formula results).
+        Stage 1: openpyxl data_only reads Excel-cached values from the XML
+                 (works for workbooks saved by Excel or LibreOffice).
+        Stage 2: formulas.Parser evaluates uncached formula cells by resolving
+                 their cell-reference inputs against the known scalar values in
+                 the same sheet (works for openpyxl-created test fixtures).
         Returns an empty dict immediately when the sheet has no formula cells.
         """
         # Fast path: skip entirely if no formula cells exist
@@ -420,7 +422,7 @@ class XlsxEpubConverter(BaseConverter):
 
         cache: dict[str, Any] = {}
 
-        # Stage 1: openpyxl data_only (works for Excel-saved files)
+        # Stage 1 — openpyxl data_only
         try:
             wb_data = openpyxl.load_workbook(source_path, data_only=True)
             ws_data = wb_data[ws_name]
@@ -432,34 +434,57 @@ class XlsxEpubConverter(BaseConverter):
         except Exception:
             pass
 
-        # Stage 2: formulas library (for openpyxl-created files or missing cache)
+        # Stage 2 — formulas.Parser with direct cell-value substitution
+        # Build a flat {coordinate: scalar} map of all non-formula cells in the
+        # sheet so the Parser can resolve references like A1, B3, etc.
+        scalar_values: dict[str, Any] = {}
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.data_type != "f" and cell.value is not None:
+                    scalar_values[cell.coordinate] = cell.value
+
+        # Include already-cached formula values (dependency chain resolution)
+        scalar_values.update(cache)
+
         try:
             import formulas as fm  # noqa: PLC0415
+            import numpy as np  # noqa: PLC0415
 
-            xl_model = fm.ExcelModel().loads(source_path).finish()
-            xl_model.calculate()
+            for row in ws.iter_rows():
+                for cell in row:
+                    if cell.data_type != "f" or cell.coordinate in cache:
+                        continue
+                    formula_str = str(cell.value)  # e.g. "=A1+A2"
+                    try:
+                        func = fm.Parser().ast(formula_str)[1].compile()
+                        inputs: dict[str, Any] = {}
+                        all_resolved = True
+                        for inp_name in func.inputs:
+                            ref_val = scalar_values.get(inp_name.upper())
+                            if ref_val is None:
+                                all_resolved = False
+                                break
+                            try:
+                                inputs[inp_name] = np.array([[float(ref_val)]])
+                            except (TypeError, ValueError):
+                                inputs[inp_name] = np.array([[ref_val]])
 
-            prefix_bare = f"{ws_name}!".upper()
-            prefix_quoted = f"'{ws_name}'!".upper()
+                        if not all_resolved or not inputs:
+                            continue
 
-            for cell_key, cell_obj in xl_model.cells.items():
-                key_upper = cell_key.upper()
-                if key_upper.startswith(prefix_bare) or key_upper.startswith(
-                    prefix_quoted
-                ):
-                    coord = cell_key.split("!")[-1].strip("'\"")
-                    if coord not in cache:
-                        try:
-                            val = cell_obj.value
-                            if hasattr(val, "flat"):
-                                val = val.flat[0]
-                            if hasattr(val, "item"):
-                                val = val.item()
-                            if val is not None:
-                                cache[coord] = val
-                        except Exception:
-                            pass
-        except Exception:
+                        result = func(**inputs)
+                        if hasattr(result, "flat"):
+                            val = result.flat[0]
+                        else:
+                            val = result
+                        if hasattr(val, "item"):
+                            val = val.item()
+                        if val is not None:
+                            cache[cell.coordinate] = val
+                            scalar_values[cell.coordinate] = val
+                    except Exception:
+                        pass
+        except ImportError:
             pass
 
         return cache
