@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <p>Hi {{recipientName}},</p>
+  <p>The document <strong>{{documentTitle}}</strong> has been <strong>rejected</strong>.</p>
+  {{#if rejectedBy}}
+  <p>Rejected by: {{rejectedBy}}</p>
+  {{/if}}
+  {{#if comment}}
+  <p><em>Comment:</em> {{comment}}</p>
+  {{/if}}
+  <p><a href="{{reviewUrl}}">View document</a></p>
+</body>
+</html>

@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <p>Hi {{recipientName}},</p>
+  <p><strong>{{mentionedBy}}</strong> mentioned you in a comment on <strong>{{documentTitle}}</strong>.</p>
+  {{#if commentExcerpt}}
+  <blockquote>{{commentExcerpt}}</blockquote>
+  {{/if}}
+  <p><a href="{{reviewUrl}}">View the comment</a></p>
+</body>
+</html>

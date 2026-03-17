@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <p>Hi {{recipientName}},</p>
+  <p><strong>{{requestedBy}}</strong> has requested your review on <strong>{{documentTitle}}</strong>.</p>
+  {{#if instructions}}
+  <p><em>Instructions:</em> {{instructions}}</p>
+  {{/if}}
+  {{#if deadline}}
+  <p><em>Deadline:</em> {{deadline}}</p>
+  {{/if}}
+  {{#if urgency}}
+  <p><em>Urgency:</em> {{urgency}}</p>
+  {{/if}}
+  <p><a href="{{reviewUrl}}">Start review</a></p>
+</body>
+</html>

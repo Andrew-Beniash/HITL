@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <p>Hi {{recipientName}},</p>
+  <p>A <strong>critical flag</strong> has been raised on <strong>{{documentTitle}}</strong> and requires your immediate attention.</p>
+  {{#if urgency}}
+  <p><em>Urgency:</em> {{urgency}}</p>
+  {{/if}}
+  {{#if reason}}
+  <p><em>Reason:</em> {{reason}}</p>
+  {{/if}}
+  <p><a href="{{reviewUrl}}">Review now</a></p>
+</body>
+</html>

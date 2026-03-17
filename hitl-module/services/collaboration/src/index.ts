@@ -1,22 +1,15 @@
-import { createServer } from "node:http";
-import { Server } from "socket.io";
+import { buildServer } from "./app.js";
+import { startRedisSubscriber, } from "./redis-subscriber.js";
+import { createRedisSubscriber } from "./redis.js";
 
 const port = Number(process.env.PORT ?? 3004);
-const httpServer = createServer((_, response) => {
-  response.writeHead(200, { "content-type": "application/json" });
-  response.end(JSON.stringify({ service: "collaboration", status: "ok" }));
-});
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*"
-  }
-});
+const { app, io } = await buildServer();
 
-io.on("connection", (socket) => {
-  socket.emit("presence", { status: "connected" });
-});
+// Start Redis pub/sub bridge on a dedicated subscriber connection
+startRedisSubscriber(io, createRedisSubscriber());
 
-httpServer.listen(port, "0.0.0.0", () => {
-  console.log(`collaboration listening on ${port}`);
+app.listen({ host: "0.0.0.0", port }).catch((err) => {
+  app.log.error(err);
+  process.exit(1);
 });
