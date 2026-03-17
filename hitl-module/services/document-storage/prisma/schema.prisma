@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceFormat {
+  DOCX @map("docx")
+  PDF  @map("pdf")
+  XLSX @map("xlsx")
+  MD   @map("md")
+  EPUB @map("epub")
+
+  @@map("source_format")
+}
+
+enum ReviewState {
+  OPEN             @map("open")
+  PENDING_APPROVAL @map("pending_approval")
+  APPROVED         @map("approved")
+  REJECTED         @map("rejected")
+
+  @@map("review_state")
+}
+
+enum ConversionStatus {
+  PENDING    @map("pending")
+  PROCESSING @map("processing")
+  COMPLETE   @map("complete")
+  FAILED     @map("failed")
+
+  @@map("conversion_status")
+}
+
+enum AnnotationType {
+  CRITICAL_FLAG    @map("critical_flag")
+  ATTENTION_MARKER @map("attention_marker")
+  VALIDATION_NOTICE @map("validation_notice")
+  HUMAN_COMMENT    @map("human_comment")
+  REVIEW_REQUEST   @map("review_request")
+  EDIT_SUGGESTION  @map("edit_suggestion")
+
+  @@map("annotation_type")
+}
+
+enum AnnotationStatus {
+  OPEN     @map("open")
+  RESOLVED @map("resolved")
+  REJECTED @map("rejected")
+
+  @@map("annotation_status")
+}
+
+enum ActorType {
+  USER   @map("user")
+  AGENT  @map("agent")
+  SYSTEM @map("system")
+
+  @@map("actor_type")
+}
+
+model Document {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String            @map("tenant_id") @db.Uuid
+  title            String
+  sourceFormat     SourceFormat      @map("source_format")
+  currentVersionId String?           @map("current_version_id") @db.Uuid
+  reviewState      ReviewState       @default(OPEN) @map("review_state")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  versions         DocumentVersion[] @relation("DocumentVersions")
+  currentVersion   DocumentVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  sessions         Session[]
+  annotations      Annotation[]
+
+  @@index([tenantId], map: "idx_documents_tenant_id")
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId         String           @map("document_id") @db.Uuid
+  versionNumber      Int              @map("version_number")
+  sourceS3Key        String           @map("source_s3_key")
+  epubS3Key          String?          @map("epub_s3_key")
+  conversionStatus   ConversionStatus @default(PENDING) @map("conversion_status")
+  conversionManifest Json?            @map("conversion_manifest")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String           @map("created_by")
+  document           Document         @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  currentForDocument Document[]       @relation("CurrentVersion")
+
+  @@index([documentId], map: "idx_document_versions_document_id")
+  @@map("document_versions")
+}
+
+model Session {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId     String       @map("document_id") @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  kbConnectionId String?      @map("kb_connection_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastActiveAt   DateTime     @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  reviewState    ReviewState  @default(OPEN) @map("review_state")
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  annotations    Annotation[]
+
+  @@index([tenantId], map: "idx_sessions_tenant_id")
+  @@index([documentId], map: "idx_sessions_document_id")
+  @@map("sessions")
+}
+
+model Annotation {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId         String           @map("session_id") @db.Uuid
+  documentId        String           @map("document_id") @db.Uuid
+  documentVersionId String           @map("document_version_id") @db.Uuid
+  authorId          String?          @map("author_id") @db.Uuid
+  agentId           String?          @map("agent_id")
+  type              AnnotationType
+  cfi               String
+  cfiText           String?          @map("cfi_text")
+  payload           Json
+  status            AnnotationStatus @default(OPEN)
+  resolvedById      String?          @map("resolved_by_id") @db.Uuid
+  resolvedAt        DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  session           Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  document          Document         @relation(fields: [documentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  replies           AnnotationReply[]
+
+  @@index([documentId, status], map: "idx_annotations_document_status")
+  @@index([type, status], map: "idx_annotations_type_status")
+  @@index([sessionId], map: "idx_annotations_session_id")
+  @@map("annotations")
+}
+
+model AnnotationReply {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  annotationId String     @map("annotation_id") @db.Uuid
+  authorId     String     @map("author_id") @db.Uuid
+  body         String
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  annotation   Annotation @relation(fields: [annotationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([annotationId], map: "idx_annotation_replies_annotation_id")
+  @@map("annotation_replies")
+}
+
+model AuditEvent {
+  id         BigInt    @id @default(autoincrement())
+  tenantId   String    @map("tenant_id") @db.Uuid
+  documentId String?   @map("document_id") @db.Uuid
+  sessionId  String?   @map("session_id") @db.Uuid
+  actorType  ActorType @map("actor_type")
+  actorId    String    @map("actor_id")
+  eventType  String    @map("event_type")
+  scope      Json?
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  metadata   Json?
+  occurredAt DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  @@index([tenantId, occurredAt], map: "idx_audit_events_tenant_occurred_at")
+  @@map("audit_events")
+}
+
+model FontProfile {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  isActive  Boolean  @default(false) @map("is_active")
+  config    Json
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_font_profiles_tenant_id")
+  @@map("font_profiles")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  payload   Json
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId, userId, read], map: "idx_notifications_tenant_user_read")
+  @@map("notifications")
+}
