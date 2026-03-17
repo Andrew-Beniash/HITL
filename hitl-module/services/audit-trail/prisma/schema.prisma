@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AuditEvent {
+  id          BigInt   @id @default(autoincrement())
+  tenantId    String   @map("tenant_id")
+  documentId  String?  @map("document_id")
+  sessionId   String?  @map("session_id")
+  actorType   String   @map("actor_type")
+  actorId     String   @map("actor_id")
+  eventType   String   @map("event_type")
+  scope       Json?
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  metadata    Json?
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  @@map("audit_events")
+}
