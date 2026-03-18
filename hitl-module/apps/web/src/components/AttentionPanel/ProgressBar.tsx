@@ -7,9 +7,9 @@ export function ProgressBar({ resolved, total }: ProgressBarProps) {
   const complete = total > 0 && resolved === total;
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+    <div data-testid="progress-bar" className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-200">
+        <p data-testid="progress-bar-text" className="text-sm text-slate-200">
           {resolved} of {total} critical items resolved
         </p>
         {complete ? (

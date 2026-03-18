@@ -5,6 +5,7 @@ interface AnnotationItemProps {
   annotation: Annotation;
   isFocused: boolean;
   onClick: () => void;
+  onResolve?: (annotationId: string) => void;
   style: CSSProperties;
 }
 
@@ -44,6 +45,7 @@ export function AnnotationItem({
   annotation,
   isFocused,
   onClick,
+  onResolve,
   style,
 }: AnnotationItemProps) {
   const author = annotation.authorId ? "User" : "AI Agent";
@@ -55,6 +57,8 @@ export function AnnotationItem({
       onClick={onClick}
       style={style}
       data-testid={`attention-item-${annotation.id}`}
+      data-annotation-id={annotation.id}
+      data-annotation-type={annotation.type}
       className={`left-0 w-full rounded-2xl border bg-slate-900/85 p-4 text-left shadow-sm ${
         isFocused
           ? "border-cyan-300 ring-2 ring-cyan-300/40"
@@ -87,7 +91,22 @@ export function AnnotationItem({
         <span>{author}</span>
         <span>{formatRelativeTime(annotation.createdAt)}</span>
       </div>
+
+      {isFocused && annotation.status === "open" && onResolve ? (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            data-testid="resolve-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onResolve(annotation.id);
+            }}
+            className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-500/30"
+          >
+            Resolve
+          </button>
+        </div>
+      ) : null}
     </button>
   );
 }
-

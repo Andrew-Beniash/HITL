@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @hitl/web test --reporter=verbose --run)",
+      "Bash(npx playwright:*)",
+      "Bash(pnpm --filter @hitl/web test --run)"
+    ]
+  }
+}

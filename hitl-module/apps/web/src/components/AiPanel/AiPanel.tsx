@@ -112,6 +112,7 @@ export function AiPanel({
           <button
             key={item.action}
             type="button"
+            data-testid={`quick-action-${item.action}`}
             onClick={() => void handleQuickAction(item.action, item.prompt)}
             className={`rounded-full px-3 py-1.5 text-sm ${
               selectedQuickAction === item.action
@@ -138,7 +139,7 @@ export function AiPanel({
         </div>
       ) : null}
 
-      <div className="flex min-h-[18rem] flex-1 flex-col gap-3 overflow-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-3">
+      <div data-testid="ai-panel-messages" className="flex min-h-[18rem] flex-1 flex-col gap-3 overflow-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-3">
         {messages.map((message) => (
           <AiMessage key={message.id} message={message} documentId={documentId} />
         ))}

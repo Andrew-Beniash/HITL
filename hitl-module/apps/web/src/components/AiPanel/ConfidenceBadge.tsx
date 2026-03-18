@@ -11,6 +11,7 @@ const LEVEL_STYLES: Record<string, string> = {
 export function ConfidenceBadge({ level }: ConfidenceBadgeProps) {
   return (
     <span
+      data-testid="confidence-badge"
       className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${
         LEVEL_STYLES[level] ?? "bg-slate-700 text-slate-200 border-slate-600"
       }`}

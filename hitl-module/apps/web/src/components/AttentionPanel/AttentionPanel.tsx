@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Annotation } from "@hitl/shared-types";
 import { useAnnotations } from "../../store/index.js";
@@ -11,9 +11,10 @@ import { useAnnotationNavigation } from "./useAnnotationNavigation.js";
 
 interface AttentionPanelProps {
   rendition: any | null;
+  documentId?: string;
 }
 
-export function AttentionPanel({ rendition }: AttentionPanelProps) {
+export function AttentionPanel({ rendition, documentId }: AttentionPanelProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const {
@@ -23,9 +24,25 @@ export function AttentionPanel({ rendition }: AttentionPanelProps) {
     resolvedCount,
     totalCriticalCount,
     setFocusedAnnotation,
+    upsertAnnotation,
   } = useAnnotations();
 
   useAnnotationNavigation(rendition);
+
+  const handleResolve = useCallback(
+    async (annotationId: string) => {
+      if (!documentId) return;
+      const res = await fetch(
+        `/api/documents/${documentId}/annotations/${annotationId}/resolve`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        const annotation = annotations.find((a) => a.id === annotationId);
+        if (annotation) upsertAnnotation({ ...annotation, status: "resolved" });
+      }
+    },
+    [documentId, annotations, upsertAnnotation]
+  );
 
   const sortedAnnotations = useMemo(
     () =>
@@ -98,6 +115,7 @@ export function AttentionPanel({ rendition }: AttentionPanelProps) {
                 annotation={annotation}
                 isFocused={annotation.id === focusedAnnotationId}
                 onClick={() => handleAnnotationClick(annotation)}
+                onResolve={documentId ? handleResolve : undefined}
                 style={{
                   position: "absolute",
                   top: 0,
