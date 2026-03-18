@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hitl
+
+resources:
+  - namespace.yaml
+  - deployments/web.yaml
+  - deployments/document-storage.yaml
+  - deployments/epub-conversion.yaml
+  - deployments/annotation-session.yaml
+  - deployments/collaboration.yaml
+  - deployments/ai-orchestration.yaml
+  - deployments/audit-trail.yaml
+  - deployments/notification.yaml
+  - deployments/platform-config.yaml
+  - services/web.yaml
+  - services/document-storage.yaml
+  - services/epub-conversion.yaml
+  - services/annotation-session.yaml
+  - services/collaboration.yaml
+  - services/ai-orchestration.yaml
+  - services/audit-trail.yaml
+  - services/notification.yaml
+  - services/platform-config.yaml
+  - keda-scaledobject.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: hitl-module
+  app.kubernetes.io/managed-by: kustomize

@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-config
+  labels:
+    app.kubernetes.io/name: platform-config
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-config
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-config
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: platform-config
+          image: ghcr.io/hitl/platform-config:latest
+          ports:
+            - containerPort: 3008
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3008"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hitl-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hitl-secrets
+                  key: redis-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hitl-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3008
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3008
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -129,6 +129,18 @@ async def _process_job(r: redis_lib.Redis, job_id: str) -> None:
     source_format: str = payload["sourceFormat"]
     tenant_id: str = payload["tenantId"]
 
+    # Job deduplication — prevent duplicate conversion jobs for the same
+    # (documentId, versionId) pair that may arrive while the first is in flight.
+    dedup_key = f"hitl:conv:active:{document_id}:{version_id}"
+    if r.get(dedup_key):
+        logger.info(
+            "Skipping duplicate conversion job %s for %s", job_id, dedup_key
+        )
+        r.lrem(ACTIVE_KEY, 1, job_id)
+        return
+    # Claim the dedup slot; TTL of 5 minutes guards against leaked keys on crash
+    r.setex(dedup_key, 300, "1")
+
     # a. Mark as PROCESSING
     await _update_version(version_id, "processing")
 
@@ -206,6 +218,8 @@ async def _process_job(r: redis_lib.Redis, job_id: str) -> None:
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+        # Release dedup key so a re-queued job can proceed after failure
+        r.delete(dedup_key)
         # Remove from active queue regardless of outcome
         r.lrem(ACTIVE_KEY, 1, job_id)
 

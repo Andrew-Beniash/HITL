@@ -3,7 +3,17 @@
     "allow": [
       "Bash(pnpm --filter @hitl/web test --reporter=verbose --run)",
       "Bash(npx playwright:*)",
-      "Bash(pnpm --filter @hitl/web test --run)"
+      "Bash(pnpm --filter @hitl/web test --run)",
+      "Bash(for service:*)",
+      "Bash(do)",
+      "Bash(echo \"=== $service ===\")",
+      "Read(//Volumes/S Drive/Projects/HITL/hitl-module/services/**)",
+      "Bash(done)",
+      "Bash(kubectl version:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(kubectl kustomize:*)",
+      "Bash(docker buildx:*)",
+      "Bash(docker build:*)"
     ]
   }
 }

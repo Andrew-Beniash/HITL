@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hitl-staging
+
+resources:
+  - ../../base
+
+namePrefix: staging-
+
+commonLabels:
+  environment: staging
+
+# Staging: lean replica counts — 1 for stateless services, 2 for epub-conversion
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: (web|document-storage|annotation-session|collaboration|ai-orchestration|audit-trail|notification|platform-config)
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+      name: epub-conversion
+  # Tighten KEDA ceiling in staging
+  - patch: |-
+      - op: replace
+        path: /spec/maxReplicaCount
+        value: 5
+      - op: replace
+        path: /spec/minReplicaCount
+        value: 1
+    target:
+      kind: ScaledObject
+      name: epub-conversion-scaler
+
+images:
+  - name: ghcr.io/hitl/web
+    newTag: staging
+  - name: ghcr.io/hitl/document-storage
+    newTag: staging
+  - name: ghcr.io/hitl/epub-conversion
+    newTag: staging
+  - name: ghcr.io/hitl/annotation-session
+    newTag: staging
+  - name: ghcr.io/hitl/collaboration
+    newTag: staging
+  - name: ghcr.io/hitl/ai-orchestration
+    newTag: staging
+  - name: ghcr.io/hitl/audit-trail
+    newTag: staging
+  - name: ghcr.io/hitl/notification
+    newTag: staging
+  - name: ghcr.io/hitl/platform-config
+    newTag: staging

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import type { Annotation } from "@hitl/shared-types";
 import { cfiToScreenRects } from "./cfi-utils.js";
 
@@ -6,6 +6,8 @@ interface AnnotationOverlayProps {
   annotations: Annotation[];
   rendition: any | null;
   focusedAnnotationId: string | null;
+  /** href of the currently displayed spine item — used for viewport culling */
+  currentChapterHref?: string;
   onAnnotationClick: (id: string) => void;
 }
 
@@ -133,9 +135,12 @@ export function AnnotationOverlay({
   annotations,
   rendition,
   focusedAnnotationId,
+  currentChapterHref = "",
   onAnnotationClick,
 }: AnnotationOverlayProps) {
   const [rects, setRects] = useState<Map<string, DOMRect[]>>(new Map());
+  // Increment to trigger re-render when off-viewport rects are resolved
+  const [, forceUpdate] = useReducer((n: number) => n + 1, 0);
 
   const redrawAll = useCallback(() => {
     if (!rendition) {
@@ -143,14 +148,60 @@ export function AnnotationOverlay({
       return;
     }
 
+    // §10.3 — performance measurement
+    performance.mark("annotation-redraw-start");
+
+    // §10.3 — viewport culling: partition annotations into in-viewport (current
+    // chapter) and off-viewport (other chapters).
+    const inViewport: Annotation[] = [];
+    const offViewport: Annotation[] = [];
+
+    for (const ann of annotations) {
+      if (!currentChapterHref || ann.cfi.includes(currentChapterHref)) {
+        inViewport.push(ann);
+      } else {
+        offViewport.push(ann);
+      }
+    }
+
+    // Resolve in-viewport annotations synchronously (must be visible now)
     const nextRects = new Map<string, DOMRect[]>();
+    for (const ann of inViewport) {
+      nextRects.set(ann.id, cfiToScreenRects(ann.cfi, rendition));
+    }
+    setRects(new Map(nextRects));
 
-    annotations.forEach((annotation) => {
-      nextRects.set(annotation.id, cfiToScreenRects(annotation.cfi, rendition));
-    });
+    // Resolve off-viewport annotations during idle time
+    if (offViewport.length > 0) {
+      const ric = (window as any).requestIdleCallback ?? setTimeout;
+      ric(
+        () => {
+          for (const ann of offViewport) {
+            nextRects.set(ann.id, cfiToScreenRects(ann.cfi, rendition));
+          }
+          setRects(new Map(nextRects));
+          forceUpdate();
+        },
+        { timeout: 1000 }
+      );
+    }
 
-    setRects(nextRects);
-  }, [annotations, rendition]);
+    // §10.3 — record and warn if over 16ms frame budget
+    performance.mark("annotation-redraw-end");
+    performance.measure(
+      "annotation-redraw",
+      "annotation-redraw-start",
+      "annotation-redraw-end"
+    );
+    if (process.env.NODE_ENV === "development") {
+      const measure = performance.getEntriesByName("annotation-redraw").at(-1);
+      if (measure && measure.duration > 16) {
+        console.warn(
+          `Annotation redraw took ${measure.duration.toFixed(1)}ms (budget: 16ms) for ${annotations.length} annotations`
+        );
+      }
+    }
+  }, [annotations, currentChapterHref, rendition]);
 
   useEffect(() => {
     if (!rendition) {
@@ -199,4 +250,3 @@ export function AnnotationOverlay({
     </div>
   );
 }
-

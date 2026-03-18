@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-config
+  labels:
+    app.kubernetes.io/name: platform-config
+spec:
+  selector:
+    app.kubernetes.io/name: platform-config
+  ports:
+    - name: http
+      port: 3008
+      targetPort: 3008
+  type: ClusterIP

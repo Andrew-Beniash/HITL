@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-orchestration
+  labels:
+    app.kubernetes.io/name: ai-orchestration
+spec:
+  selector:
+    app.kubernetes.io/name: ai-orchestration
+  ports:
+    - name: http
+      port: 3005
+      targetPort: 3005
+  type: ClusterIP

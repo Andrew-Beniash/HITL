@@ -73,6 +73,7 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
     const currentCfiRef = useRef<string | null>(initialCfi ?? null);
     const syncLockRef = useRef(false);
     const [activeRendition, setActiveRendition] = useState<Rendition | null>(null);
+    const [currentChapterHref, setCurrentChapterHref] = useState<string>("");
     const [selectionState, setSelectionState] = useState<{
       cfi: string | null;
       text: string | null;
@@ -152,6 +153,7 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
 
       const handleRelocated = (location: Location) => {
         currentCfiRef.current = location.start.cfi;
+        setCurrentChapterHref(location.start.href);
         onLocationChange(location.start.cfi, location.start.href);
 
         if (documentId) {
@@ -159,6 +161,24 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
             `hitl:location:${documentId}`,
             location.start.cfi
           );
+        }
+
+        // §10.1 — 2-chapter lookahead pre-fetch via requestIdleCallback so the
+        // browser caches the next spine items before the user navigates to them.
+        const spineItems: any[] = (mainBook.spine as any).items ?? [];
+        if (spineItems.length > 0) {
+          const currentIndex = spineItems.findIndex(
+            (item: any) => item.href === location.start.href
+          );
+          [currentIndex + 1, currentIndex + 2].forEach((idx) => {
+            const item = (mainBook.spine as any).get?.(idx);
+            if (item) {
+              const ric = (window as any).requestIdleCallback ?? setTimeout;
+              ric(() => {
+                mainRendition.display(item.href).catch(() => {});
+              });
+            }
+          });
         }
       };
 
@@ -321,6 +341,7 @@ export const EpubViewer = forwardRef<EpubViewerHandle, EpubViewerProps>(
             annotations={annotations}
             rendition={activeRendition}
             focusedAnnotationId={focusedAnnotationId}
+            currentChapterHref={currentChapterHref}
             onAnnotationClick={setFocusedAnnotation}
           />
         </div>

@@ -1,0 +1,58 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hitl
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: production
+
+# Production: 3 replicas for all stateless services; epub-conversion managed by KEDA
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: (web|document-storage|annotation-session|collaboration|ai-orchestration|audit-trail|notification|platform-config)
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: epub-conversion
+  # Production KEDA — KEDA §9 spec: min=2, max=20 (base); production raises ceiling to 50
+  - patch: |-
+      - op: replace
+        path: /spec/maxReplicaCount
+        value: 50
+      - op: replace
+        path: /spec/minReplicaCount
+        value: 2
+    target:
+      kind: ScaledObject
+      name: epub-conversion-scaler
+
+images:
+  - name: ghcr.io/hitl/web
+    newTag: latest
+  - name: ghcr.io/hitl/document-storage
+    newTag: latest
+  - name: ghcr.io/hitl/epub-conversion
+    newTag: latest
+  - name: ghcr.io/hitl/annotation-session
+    newTag: latest
+  - name: ghcr.io/hitl/collaboration
+    newTag: latest
+  - name: ghcr.io/hitl/ai-orchestration
+    newTag: latest
+  - name: ghcr.io/hitl/audit-trail
+    newTag: latest
+  - name: ghcr.io/hitl/notification
+    newTag: latest
+  - name: ghcr.io/hitl/platform-config
+    newTag: latest

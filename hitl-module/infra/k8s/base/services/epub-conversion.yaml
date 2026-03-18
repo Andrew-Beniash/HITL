@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: epub-conversion
+  labels:
+    app.kubernetes.io/name: epub-conversion
+spec:
+  selector:
+    app.kubernetes.io/name: epub-conversion
+  ports:
+    - name: http
+      port: 3002
+      targetPort: 3002
+  type: ClusterIP
