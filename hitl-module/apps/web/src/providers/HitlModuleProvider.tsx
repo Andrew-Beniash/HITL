@@ -38,6 +38,7 @@ export function HitlModuleProvider({
   const [retryKey, setRetryKey] = useState(0);
 
   const setSession = useStore((s) => s.setSession);
+  const setAuthToken = useStore((s) => s.setAuthToken);
   const setPermissions = useStore((s) => s.setPermissions);
   const setDocument = useStore((s) => s.setDocument);
   const setVersionHistory = useStore((s) => s.setVersionHistory);
@@ -67,6 +68,7 @@ export function HitlModuleProvider({
         tenantId: config.tenantId,
         currentUser: sessionData.user,
       });
+      setAuthToken(config.authToken);
       setBootstrapStep(1);
 
       // Step 2: Resolve permissions

@@ -16,6 +16,7 @@ export interface SessionSlice {
   currentUser: User | null;
   permissions: Permission[];
   reviewState: ReviewState | null;
+  authToken: string | null;
   setSession: (session: {
     sessionId: string;
     documentId: string;
@@ -24,6 +25,7 @@ export interface SessionSlice {
   }) => void;
   setReviewState: (state: ReviewState) => void;
   setPermissions: (perms: Permission[]) => void;
+  setAuthToken: (token: string | null) => void;
 }
 
 export const createSessionSlice: StateCreator<
@@ -38,6 +40,7 @@ export const createSessionSlice: StateCreator<
   currentUser: null,
   permissions: [],
   reviewState: null,
+  authToken: null,
   setSession: (session) =>
     set((state) => {
       state.sessionId = session.sessionId;
@@ -52,5 +55,9 @@ export const createSessionSlice: StateCreator<
   setPermissions: (permissions) =>
     set((state) => {
       state.permissions = permissions;
+    }),
+  setAuthToken: (token) =>
+    set((state) => {
+      state.authToken = token;
     }),
 });

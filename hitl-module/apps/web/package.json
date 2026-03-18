@@ -13,12 +13,16 @@
     "@hitl/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-virtual": "^3.13.23",
+    "diff-match-patch": "^1.0.5",
     "epubjs": "^0.3.93",
     "immer": "^11.1.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hotkeys-hook": "^4.6.2",
+    "react-markdown": "^9.1.0",
     "react-router": "^7.9.4",
+    "remark-gfm": "^4.0.1",
+    "socket.io-client": "^4.8.3",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
